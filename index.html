@@ -82,14 +82,14 @@
   body.running header{display:none}
   .topline{display:flex;justify-content:space-between;align-items:center;font-size:15px;color:var(--muted);padding:6px 2px 0}
   .topline strong{color:var(--text);font-variant-numeric:tabular-nums}
-  .stage{position:relative;flex:1;display:grid;place-items:center;min-height:320px}
-  .ring{width:min(88vw,400px);height:min(88vw,400px)}
+  .stage{position:relative;flex:1;display:grid;place-items:center;min-height:0}
+  .ring{width:var(--ring);height:var(--ring)}
   .ring circle{fill:none;stroke-width:14}
   .ring .track{stroke:var(--panel2)}
   .ring .prog{stroke:var(--accent);stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke .3s}
   .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-  .phase{font-size:clamp(26px,8vw,38px);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);transition:color .3s}
-  .count{font-size:clamp(110px,36vw,170px);line-height:.9;font-weight:700;font-variant-numeric:tabular-nums}
+  .phase{font-size:calc(var(--ring)*.095);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);transition:color .3s}
+  .count{font-size:calc(var(--ring)*.42);line-height:.9;font-weight:700;font-variant-numeric:tabular-nums}
   .next{font-size:15px;color:var(--muted);margin-top:8px;min-height:20px}
   .bars{display:flex;gap:5px}
   .bars i{flex:1;height:8px;border-radius:4px;background:var(--panel2);transition:background .3s}
@@ -155,6 +155,39 @@
   .vol input{flex:1;accent-color:var(--work);height:28px}
   .vol span{min-width:40px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
   .note{color:var(--muted);font-size:12px;line-height:1.5;margin:8px 2px 0}
+
+  /* Tamaño del reloj: se adapta al ancho y al alto de la pantalla */
+  :root{--ring:min(88vw,400px,55vh);--ring:min(88vw,400px,55dvh)}
+  .next{font-size:max(12px,calc(var(--ring)*.04))}
+  .count.long{font-size:calc(var(--ring)*.3)}
+
+  /* Horizontal: reloj a la izquierda, datos y botones a la derecha */
+  @media (orientation: landscape) and (max-height: 600px){
+    :root{--ring:min(calc(100vh - 36px),52vw);--ring:min(calc(100dvh - 36px - var(--safe-t) - var(--safe-b)),52vw)}
+    body{padding:calc(var(--safe-t) + 10px) calc(env(safe-area-inset-right,0px) + 14px) calc(var(--safe-b) + 10px) calc(env(safe-area-inset-left,0px) + 14px)}
+    .app{max-width:none}
+    body.running .app{height:100%}
+    body.running #timer{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto 1fr auto;column-gap:22px;row-gap:12px;height:100%}
+    .stage{grid-column:1;grid-row:1 / span 4}
+    .topline,.bars,.meta,.controls{grid-column:2}
+    .topline{grid-row:1;padding-top:0}
+    .bars{grid-row:2}
+    .meta{grid-row:3;align-self:center}
+    .controls{grid-row:4}
+    .controls button{height:58px}
+    .meta b{font-size:26px}
+    /* Pantalla de ajustes en dos columnas */
+    #setup{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;align-content:start}
+    #setup .presets,#setup #fields{grid-column:1}
+    #setup .presets{grid-row:1}
+    #setup #fields{grid-row:2 / span 4}
+    #setup .summary,#setup #soundBtn,#setup .big-btn,#setup .hint{grid-column:2}
+    #setup .big-btn{margin-top:0}
+    header{padding-bottom:8px}
+    .row{padding:8px 12px}
+    .stepper button{width:36px;height:36px}
+    .stepper .val{font-size:24px}
+  }
 </style>
 </head>
 <body>
@@ -593,6 +626,7 @@
       lastWhole = whole;
     }
     $('count').textContent = whole >= 60 ? fmt(whole) : whole;
+    $('count').classList.toggle('long', whole >= 60);
     $('prog').style.strokeDashoffset = CIRC * (1 - left / s.dur);
     const done = segs.slice(0, idx).reduce((a,x) => a + x.dur, 0) + (s.dur - left);
     $('elapsed').textContent = fmt(Math.floor(done));
@@ -601,7 +635,7 @@
   function finish(){
     running = false; clearInterval(tick);
     document.documentElement.style.setProperty('--accent', COLOR.done);
-    $('phase').textContent = LABEL.done; $('count').textContent = '✓';
+    $('phase').textContent = LABEL.done; $('count').textContent = '✓'; $('count').classList.remove('long');
     $('next').textContent = 'Total ' + fmt(totalDur); $('prog').style.strokeDashoffset = 0;
     $('remain').textContent = '0:00'; $('elapsed').textContent = fmt(totalDur);
     $('pauseTxt').textContent = 'Repetir';

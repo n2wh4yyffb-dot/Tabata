@@ -1,5 +1,5 @@
 // Cambia este número cada vez que actualices la app para que el iPhone baje la versión nueva.
-const VERSION = 'tabata-v1';
+const VERSION = 'tabata-v2';
 const FILES = [
   './', './index.html', './manifest.webmanifest',
   './icons/apple-touch-icon.png', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
