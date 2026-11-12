@@ -1,5 +1,5 @@
 // Cambia este número cada vez que actualices la app.
-const VERSION = 'tabata-v12';
+const VERSION = 'tabata-v14';
 const FILES = [
   './', './index.html', './manifest.webmanifest',
   './icons/apple-touch-icon.png', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',

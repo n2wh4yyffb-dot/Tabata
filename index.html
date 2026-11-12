@@ -327,6 +327,9 @@
     <div class="sec"><span>Frases de la voz</span></div>
     <div class="chips c3" id="phraseChips"></div>
 
+    <div class="sec"><span>Aviso de carrera al terminar la serie</span></div>
+    <div class="chips c2" id="runChips"></div>
+
     <div class="sec"><span>Voz</span><span>toca para oír</span></div>
     <div class="vlist" id="voiceList"></div>
     <p class="note" id="voiceNote">En el iPhone puedes descargar más voces en Ajustes › Accesibilidad › Contenido leído › Voces › Español.</p>
@@ -362,7 +365,7 @@
     set(k,v){ try{ localStorage.setItem('tabata.'+k, JSON.stringify(v)); }catch(e){} }
   };
   let cfg  = Object.assign({}, PRESETS[0].v, store.get('cfg', {}));
-  let opts = Object.assign({sound:'classic', vol:80, countdown:'beep', phrases:'basic', voice:'auto', wake:true}, store.get('opts2', {}));
+  let opts = Object.assign({sound:'classic', vol:80, countdown:'beep', phrases:'basic', voice:'auto', wake:true, run:false}, store.get('opts2', {}));
   const saveOpts = () => store.set('opts2', opts);
 
   const $ = id => document.getElementById(id);
@@ -439,6 +442,8 @@
   const COUNT_OPTS  = [['beep','Pitidos'],['voice','Voz'],['both','Ambos'],['none','Nada']];
   const PHRASE_OPTS = [['basic','Básicas','“Vamos equipo · Descansa”'],['motiv','Motivadoras','“¡Dale fuerte!”'],['short','Cortas','“Ya · Para”']];
   const WAKE_OPTS   = [[true,'Siempre encendida'],[false,'Normal']];
+  const RUN_OPTS    = [[true,'Activado','“400 metros de carrera”'],[false,'Desactivado','']];
+  const RUN = 'Entonces, cuatrocientos metros de carrera, equipo';
 
   function chipGroup(el, items, key, onPick){
     el.innerHTML = '';
@@ -461,6 +466,7 @@
     });
     chipGroup($('phraseChips'), PHRASE_OPTS, 'phrases', () => { initAudio(); say(pick(PHRASES[opts.phrases].work)); });
     chipGroup($('wakeChips'), WAKE_OPTS, 'wake');
+    chipGroup($('runChips'), RUN_OPTS, 'run', v => { if (v){ initAudio(); say(RUN, true); } });
     renderVoices();
   }
   function renderVoices(){
@@ -695,7 +701,7 @@
     play(s.type === 'work' ? 'work' : s.type === 'prep' ? 'tick' : 'rest');
     const lastRound = s.type === 'work' && cfg.rounds > 1 && s.round === cfg.rounds && s.set === cfg.sets;
     const firstRound = s.type === 'work' && s.round === 1 && s.set === 1;
-    say(s.type === 'prep' && s.dur < 7 ? TEAM : lastRound ? P('last') : firstRound && opts.phrases === 'basic' ? '¡Vamos equipo!' : P(s.type), true);
+    say(s.type === 'setrest' && opts.run ? RUN : s.type === 'prep' && s.dur < 7 ? TEAM : lastRound ? P('last') : firstRound && opts.phrases === 'basic' ? '¡Vamos equipo!' : P(s.type), true);
     try{ navigator.vibrate && navigator.vibrate(200); }catch(e){}
     document.body.classList.remove('flash'); void document.body.offsetWidth; document.body.classList.add('flash');
     updateBars();
@@ -735,7 +741,8 @@
     $('pauseIcon').innerHTML = '<path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
     document.querySelectorAll('#bars i').forEach(b => { b.className = 'done'; });
     play('done');
-    say('¡Buen trabajo equipo!', true);
+    // En una sola frase: en el iPhone, una segunda frase en cola justo después de cortar la voz a veces se pierde
+    say(opts.run ? '¡Buen trabajo equipo! ' + RUN : '¡Buen trabajo equipo!', true);
     releaseScreen();
   }
   function togglePause(){
