@@ -514,7 +514,7 @@
   const HEX = {prep:'#f5c542', work:'#00e676', rest:'#2979ff', setrest:'#1a5cff', done:'#c38bff'};
   const setTheme = c => { const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = c; };
   const PHRASES = {
-    basic: {prep:['Prepárate'], work:['¡Vamos equipo!'], last:['¡Última ronda!'], rest:['Descansa'], setrest:['Descanso entre series'],
+    basic: {prep:['Prepárate'], work:['¡Vamos!'], last:['¡Última ronda!'], rest:['Descansa'], setrest:['Descanso entre series'],
             half:['Mitad'], done:['¡Terminado! Buen trabajo'], pause:['Pausa'], count:['Uno','Dos','Tres']},
     motiv: {prep:['Prepárate, que empezamos','Concéntrate, empezamos'], work:['¡Dale fuerte!','¡A tope!','¡Vamos, vamos!','¡Con todo!','¡Ahora!'],
             last:['¡Última ronda, déjalo todo!','¡La última, con todo!'], rest:['Respira','Recupera','Buen trabajo, respira'],
@@ -694,7 +694,8 @@
     $('setLabel').style.visibility = cfg.sets > 1 ? 'visible' : 'hidden';
     play(s.type === 'work' ? 'work' : s.type === 'prep' ? 'tick' : 'rest');
     const lastRound = s.type === 'work' && cfg.rounds > 1 && s.round === cfg.rounds && s.set === cfg.sets;
-    say(s.type === 'prep' && s.dur < 7 ? TEAM : lastRound ? P('last') : P(s.type), true);
+    const firstRound = s.type === 'work' && s.round === 1 && s.set === 1;
+    say(s.type === 'prep' && s.dur < 7 ? TEAM : lastRound ? P('last') : firstRound && opts.phrases === 'basic' ? '¡Vamos equipo!' : P(s.type), true);
     try{ navigator.vibrate && navigator.vibrate(200); }catch(e){}
     document.body.classList.remove('flash'); void document.body.offsetWidth; document.body.classList.add('flash');
     updateBars();
