@@ -23,7 +23,7 @@
   :root{
     --bg:#0d0d0f; --panel:#17171b; --panel2:#202026; --line:#2b2b33;
     --text:#f4f4f6; --muted:#8d8d99;
-    --prep:#f5c542; --work:#ff4d3d; --rest:#2fd17c; --setrest:#4aa8ff; --done:#c38bff;
+    --prep:#f5c542; --work:#00e676; --rest:#2979ff; --setrest:#1a5cff; --done:#c38bff; --ink:#0b0b0d;
     --accent:var(--work);
     --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
   }
@@ -70,8 +70,8 @@
   .toggle.on .chk{background:var(--rest);border-color:var(--rest)}
   .toggle.on .chk::after{content:"";width:6px;height:9px;border:solid #0d0d0f;border-width:0 2.5px 2.5px 0;transform:rotate(45deg) translate(-1px,-1px)}
   .big-btn{margin-top:auto;width:100%;border:0;border-radius:20px;padding:20px;font-size:26px;font-weight:800;
-    letter-spacing:.08em;text-transform:uppercase;background:var(--work);color:#fff;cursor:pointer;
-    box-shadow:0 10px 30px -10px rgba(255,77,61,.6)}
+    letter-spacing:.08em;text-transform:uppercase;background:var(--work);color:var(--ink);cursor:pointer;
+    box-shadow:0 10px 30px -10px rgba(0,230,118,.6)}
   .big-btn:active{transform:scale(.98)}
   .hint{color:var(--muted);font-size:12px;text-align:center;line-height:1.5;margin:0}
 
@@ -108,7 +108,25 @@
   .controls .main svg{width:30px;height:30px}
   body.paused .count{opacity:.45}
   body.flash .stage{animation:flash .5s}
-  @keyframes flash{0%{background:color-mix(in srgb,var(--accent) 35%,transparent);border-radius:30px}100%{background:transparent}}
+  @keyframes flash{0%{background:rgba(255,255,255,.45);border-radius:30px}100%{background:transparent}}
+
+  /* Pantalla de cuenta atrás: fondo del color de la fase y todo en negro */
+  html:has(body.running){background:var(--accent)}
+  html,body{transition:background-color .3s}
+  body.running{background:var(--accent);color:var(--ink)}
+  body.running .topline{color:rgba(0,0,0,.6)}
+  body.running .topline strong{color:var(--ink)}
+  body.running .bars i{background:rgba(0,0,0,.14)}
+  body.running .bars i.done{background:rgba(0,0,0,.5)}
+  body.running .bars i.cur{background:var(--ink)}
+  body.running .ring .track{stroke:rgba(0,0,0,.14)}
+  body.running .ring .prog{stroke:var(--ink)}
+  body.running .phase,body.running .count{color:var(--ink)}
+  body.running .next{color:rgba(0,0,0,.65)}
+  body.running .meta div{background:rgba(0,0,0,.1);border-color:transparent}
+  body.running .meta small{color:rgba(0,0,0,.6)}
+  body.running .controls button{background:rgba(0,0,0,.12);color:var(--ink)}
+  body.running .controls .main{background:var(--ink);color:#fff}
 
   /* Help */
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:10}
@@ -143,10 +161,10 @@
     font-weight:600;font-size:13px;color:var(--text);cursor:pointer;line-height:1.2}
   .chip small{display:block;color:var(--muted);font-size:11px;font-weight:500;margin-top:2px}
   .chip .em{display:block;font-size:20px;margin-bottom:3px}
-  .chip.on{border-color:var(--work);background:rgba(255,77,61,.12)}
+  .chip.on{border-color:var(--work);background:rgba(0,230,118,.14)}
   .vlist{display:flex;flex-direction:column;gap:6px}
   .vitem{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;background:var(--panel2);border:1.5px solid transparent;cursor:pointer}
-  .vitem.on{border-color:var(--work);background:rgba(255,77,61,.12)}
+  .vitem.on{border-color:var(--work);background:rgba(0,230,118,.14)}
   .vitem .vn{flex:1;font-weight:600;font-size:14px}
   .vitem .vn small{display:block;color:var(--muted);font-weight:500;font-size:12px}
   .vitem .play{width:34px;height:34px;border-radius:50%;background:var(--panel);display:grid;place-items:center;flex:0 0 auto}
@@ -166,16 +184,22 @@
     :root{--ring:min(calc(100vh - 36px),52vw);--ring:min(calc(100dvh - 36px - var(--safe-t) - var(--safe-b)),52vw)}
     body{padding:calc(var(--safe-t) + 10px) calc(env(safe-area-inset-right,0px) + 14px) calc(var(--safe-b) + 10px) calc(env(safe-area-inset-left,0px) + 14px)}
     .app{max-width:none}
+    /* En horizontal solo se ven los números, a pantalla completa. Toca la pantalla para pausar. */
     body.running .app{height:100%}
-    body.running #timer{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto 1fr auto;column-gap:22px;row-gap:12px;height:100%}
-    .stage{grid-column:1;grid-row:1 / span 4}
-    .topline,.bars,.meta,.controls{grid-column:2}
-    .topline{grid-row:1;padding-top:0}
-    .bars{grid-row:2}
-    .meta{grid-row:3;align-self:center}
-    .controls{grid-row:4}
+    body.running #timer{display:block;position:relative;height:100%}
+    body.running .topline,body.running .bars,body.running .meta,body.running .ring{display:none!important}
+    body.running .stage{position:absolute;inset:0;cursor:pointer}
+    body.running .center{inset:0}
+    body.running .count{font-size:min(118dvh,92vw);line-height:.8;letter-spacing:-.01em}
+    body.running .count.long{font-size:min(118dvh,54vw)}
+    body.running .phase{position:absolute;top:0;left:0;font-size:18px}
+    body.running .next{position:absolute;bottom:0;right:0;margin:0;font-size:14px}
+    body.running .controls{display:none;position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:min(520px,90%);z-index:2}
+    body.running.paused .controls,body.running.finished .controls{display:grid}
+    body.running.paused .controls button,body.running.finished .controls button{background:rgba(255,255,255,.75)}
+    body.running.paused .controls .main,body.running.finished .controls .main{background:var(--ink)}
+    body.running.paused .next,body.running.finished .next{display:none}
     .controls button{height:58px}
-    .meta b{font-size:26px}
     /* Pantalla de ajustes en dos columnas */
     #setup{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;align-content:start}
     #setup .presets,#setup #fields{grid-column:1}
@@ -446,6 +470,8 @@
   }
   const LABEL = {prep:'Prepárate', work:'¡Trabaja!', rest:'Descansa', setrest:'Descanso', done:'¡Hecho!'};
   const COLOR = {prep:'var(--prep)', work:'var(--work)', rest:'var(--rest)', setrest:'var(--setrest)', done:'var(--done)'};
+  const HEX = {prep:'#f5c542', work:'#00e676', rest:'#2979ff', setrest:'#1a5cff', done:'#c38bff'};
+  const setTheme = c => { const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = c; };
   const PHRASES = {
     basic: {prep:['Prepárate'], work:['¡Vamos!'], last:['¡Última ronda!'], rest:['Descansa'], setrest:['Descanso entre series'],
             half:['Mitad'], done:['¡Terminado! Buen trabajo'], pause:['Pausa'], count:['Uno','Dos','Tres']},
@@ -583,7 +609,7 @@
     initAudio();
     segs = buildSegments(); totalDur = segs.reduce((a,s) => a + s.dur, 0);
     idx = 0; running = true; paused = false;
-    document.body.classList.add('running'); document.body.classList.remove('paused');
+    document.body.classList.add('running'); document.body.classList.remove('paused','finished');
     buildBars();
     enter(0);
     lockScreen();
@@ -595,7 +621,7 @@
     const s = segs[idx];
     segEnd = performance.now() + s.dur*1000;
     lastWhole = null;
-    document.documentElement.style.setProperty('--accent', COLOR[s.type]);
+    document.documentElement.style.setProperty('--accent', COLOR[s.type]); setTheme(HEX[s.type]);
     $('phase').textContent = LABEL[s.type];
     const nx = segs[idx+1];
     $('next').textContent = nx ? 'Después: ' + LABEL[nx.type].replace(/[¡!]/g,'') + ' · ' + fmtVal({time:true}, nx.dur) : 'Último intervalo';
@@ -634,7 +660,8 @@
   }
   function finish(){
     running = false; clearInterval(tick);
-    document.documentElement.style.setProperty('--accent', COLOR.done);
+    document.body.classList.add('finished');
+    document.documentElement.style.setProperty('--accent', COLOR.done); setTheme(HEX.done);
     $('phase').textContent = LABEL.done; $('count').textContent = '✓'; $('count').classList.remove('long');
     $('next').textContent = 'Total ' + fmt(totalDur); $('prog').style.strokeDashoffset = 0;
     $('remain').textContent = '0:00'; $('elapsed').textContent = fmt(totalDur);
@@ -666,8 +693,8 @@
   function stop(){
     running = false; paused = false; clearInterval(tick); releaseScreen();
     try{ speechSynthesis.cancel(); }catch(e){}
-    document.body.classList.remove('running','paused'); resetPauseBtn();
-    document.documentElement.style.setProperty('--accent', 'var(--work)');
+    document.body.classList.remove('running','paused','finished'); resetPauseBtn();
+    document.documentElement.style.setProperty('--accent', 'var(--work)'); setTheme('#0d0d0f');
   }
   function skip(){
     if (!running) return;
@@ -699,6 +726,8 @@
   $('pauseBtn').onclick = togglePause;
   $('stopBtn').onclick = stop;
   $('skipBtn').onclick = skip;
+  const landscape = matchMedia('(orientation: landscape) and (max-height: 600px)');
+  document.querySelector('.stage').onclick = () => { if (landscape.matches && running) togglePause(); };
   $('helpBtn').onclick = () => $('help').classList.add('open');
   $('helpClose').onclick = () => $('help').classList.remove('open');
   $('soundBtn').onclick = () => { initAudio(); renderSheet(); $('soundSheet').classList.add('open'); };
