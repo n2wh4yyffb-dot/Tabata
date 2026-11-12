@@ -472,7 +472,7 @@
   function renderVoices(){
     const list = $('voiceList'); list.innerHTML = '';
     const voices = spanishVoices();
-    const items = [['none','Sin voz','Solo pitidos'], ['auto','Automática','La voz en español del sistema']]
+    const items = [['none','Sin voz','Solo pitidos'], ['mine','Mi voz','Grabaciones de Julián'], ['auto','Automática','La voz en español del sistema']]
       .concat(voices.map(v => [v.voiceURI, cleanName(v.name), regionName(v.lang)]));
     items.forEach(([id, name, sub]) => {
       const it = document.createElement('div');
@@ -483,14 +483,17 @@
         opts.voice = id; saveOpts();
         list.querySelectorAll('.vitem').forEach(x => x.classList.remove('on')); it.classList.add('on');
         renderSoundSummary(); initAudio();
-        if (id !== 'none') say('¡Vamos equipo! Tres, dos, uno', true);
+        if (id === 'mine'){
+          if (opts.countdown === 'beep'){ opts.countdown = 'voice'; saveOpts(); renderSheet(); }
+          loadClips().then(() => clip('equipo'));
+        } else if (id !== 'none') say('¡Vamos equipo! Tres, dos, uno', true);
       };
       list.appendChild(it);
     });
     $('voiceNote').style.display = voices.length < 3 ? 'block' : 'none';
   }
   function renderSoundSummary(){
-    const v = opts.voice === 'none' ? 'sin voz' : opts.voice === 'auto' ? 'voz automática' : 'voz ' + cleanName((spanishVoices().find(x => x.voiceURI === opts.voice) || {name:'?'}).name);
+    const v = opts.voice === 'none' ? 'sin voz' : mine() ? 'mi voz' : opts.voice === 'auto' ? 'voz automática' : 'voz ' + cleanName((spanishVoices().find(x => x.voiceURI === opts.voice) || {name:'?'}).name);
     const ph = PHRASE_OPTS.find(p => p[0] === opts.phrases)[1].toLowerCase();
     $('soundSummary').textContent = `${SOUNDS[opts.sound].name} · ${v}${opts.voice === 'none' ? '' : ' · frases ' + ph} · ${opts.vol}%`;
   }
@@ -544,6 +547,7 @@
         master.connect(comp).connect(boost).connect(ctx.destination); }
       if (ctx.state === 'suspended') ctx.resume();
       master.gain.value = opts.vol / 100;
+      if (mine()) loadClips();
       // unlock on iOS with a silent buffer
       const b = ctx.createBuffer(1,1,22050), src = ctx.createBufferSource();
       src.buffer = b; src.connect(ctx.destination); src.start(0);
@@ -645,6 +649,40 @@
         .sort((a,b) => (/ES/i.test(b.lang.slice(3)) - /ES/i.test(a.lang.slice(3))) || a.name.localeCompare(b.name));
     }catch(e){ return []; }
   }
+  // ---------- Mi voz: grabaciones de Julián ----------
+  const CLIPS = {equipo:'audio/equipo.mp3', tres:'audio/tres.mp3', dos:'audio/dos.mp3', uno:'audio/uno.mp3',
+    vamos:'audio/vamos-equipo.mp3', descanso:'audio/descanso.mp3', ultima:'audio/ultima.mp3',
+    buen:'audio/buen-trabajo.mp3', carrera:'audio/carrera.mp3'};
+  const clipBuf = {}; let clipSrc = null, clipsLoading = null;
+  const mine = () => opts.voice === 'mine';
+  function loadClips(){
+    if (clipsLoading || !ctx) return clipsLoading;
+    clipsLoading = Promise.all(Object.entries(CLIPS).map(([k,u]) =>
+      fetch(u).then(r => r.arrayBuffer()).then(ab => new Promise((ok, ko) => ctx.decodeAudioData(ab, ok, ko)))
+        .then(b => { clipBuf[k] = b; }).catch(() => {})));
+    return clipsLoading;
+  }
+  // Reproduce una o varias grabaciones seguidas (corta la que esté sonando)
+  function clip(...keys){
+    if (!ctx) return;
+    // Si aún se están cargando (primera vez), suena en cuanto estén listas
+    if (keys.some(k => !clipBuf[k])){
+      const t0 = performance.now();
+      (loadClips() || Promise.resolve()).then(() => { if (performance.now() - t0 < 1500 && keys.every(k => clipBuf[k])) clip(...keys); });
+      return;
+    }
+    try{
+      if (ctx.state === 'suspended') ctx.resume();
+      master.gain.value = opts.vol / 100;
+      try{ clipSrc && clipSrc.stop(); }catch(e){}
+      let t = ctx.currentTime + .01;
+      keys.forEach(k => {
+        const b = clipBuf[k]; if (!b) return;
+        const src = ctx.createBufferSource(), g = ctx.createGain(); g.gain.value = 1.15;
+        src.buffer = b; src.connect(g).connect(master); src.start(t); t += b.duration + .25; clipSrc = src;
+      });
+    }catch(e){}
+  }
   function currentVoice(){
     const vs = spanishVoices();
     if (opts.voice !== 'auto'){ const v = vs.find(x => x.voiceURI === opts.voice); if (v) return v; }
@@ -652,7 +690,7 @@
   }
   try{ speechSynthesis.onvoiceschanged = () => { if ($('soundSheet').classList.contains('open')) renderVoices(); renderSoundSummary(); }; }catch(e){}
   function say(text, interrupt=false){
-    if (opts.voice === 'none') return;
+    if (opts.voice === 'none' || mine()) return;
     try{
       if (interrupt) speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text), v = currentVoice();
@@ -701,6 +739,11 @@
     play(s.type === 'work' ? 'work' : s.type === 'prep' ? 'tick' : 'rest');
     const lastRound = s.type === 'work' && cfg.rounds > 1 && s.round === cfg.rounds && s.set === cfg.sets;
     const firstRound = s.type === 'work' && s.round === 1 && s.set === 1;
+    if (mine()){
+      const k = s.type === 'prep' ? 'equipo' : s.type === 'rest' ? 'descanso' : s.type === 'setrest' ? (opts.run ? 'carrera' : 'descanso')
+        : lastRound ? 'ultima' : firstRound ? 'vamos' : null;
+      if (k) clip(k);
+    }
     say(s.type === 'setrest' && opts.run ? RUN : s.type === 'prep' && s.dur < 7 ? TEAM : lastRound ? P('last') : firstRound && opts.phrases === 'basic' ? '¡Vamos equipo!' : P(s.type), true);
     try{ navigator.vibrate && navigator.vibrate(200); }catch(e){}
     document.body.classList.remove('flash'); void document.body.offsetWidth; document.body.classList.add('flash');
@@ -717,7 +760,9 @@
     if (whole !== lastWhole){
       if (lastWhole !== null && whole <= 3 && whole >= 1 && s.dur > 3){
         if (opts.countdown === 'beep' || opts.countdown === 'both') play('tick');
-        if (opts.countdown === 'voice' || opts.countdown === 'both') say(PHRASES[opts.phrases].count[whole-1], true);
+        if (opts.countdown === 'voice' || opts.countdown === 'both'){
+          if (mine()) clip(['uno','dos','tres'][whole-1]); else say(PHRASES[opts.phrases].count[whole-1], true);
+        }
       }
       if (s.type === 'prep' && s.dur >= 7 && whole === 6 && lastWhole !== null) say(TEAM, true);
       if (s.type === 'work' && s.dur >= 30 && whole === Math.ceil(s.dur/2) && lastWhole !== null) say(P('half'));
@@ -742,6 +787,7 @@
     document.querySelectorAll('#bars i').forEach(b => { b.className = 'done'; });
     play('done');
     // En una sola frase: en el iPhone, una segunda frase en cola justo después de cortar la voz a veces se pierde
+    if (mine()) opts.run ? clip('buen','carrera') : clip('buen');
     say(opts.run ? '¡Buen trabajo equipo! ' + RUN : '¡Buen trabajo equipo!', true);
     releaseScreen();
   }

@@ -1,10 +1,12 @@
 // Cambia este número cada vez que actualices la app.
-const VERSION = 'tabata-v14';
+const VERSION = 'tabata-v15';
 const FILES = [
   './', './index.html', './manifest.webmanifest',
   './icons/apple-touch-icon.png', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
   './fonts/barlow-condensed-latin-500-normal.woff2', './fonts/barlow-condensed-latin-600-normal.woff2',
   './fonts/barlow-condensed-latin-700-normal.woff2', './fonts/barlow-condensed-latin-800-normal.woff2',
+  './audio/equipo.mp3', './audio/tres.mp3', './audio/dos.mp3', './audio/uno.mp3', './audio/vamos-equipo.mp3',
+  './audio/descanso.mp3', './audio/ultima.mp3', './audio/buen-trabajo.mp3', './audio/carrera.mp3',
   './fonts/inter-latin-400-normal.woff2', './fonts/inter-latin-500-normal.woff2', './fonts/inter-latin-600-normal.woff2',
 ];
 
