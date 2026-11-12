@@ -1,5 +1,5 @@
-// Cambia este número cada vez que actualices la app para que el iPhone baje la versión nueva.
-const VERSION = 'tabata-v4';
+// Cambia este número cada vez que actualices la app.
+const VERSION = 'tabata-v9';
 const FILES = [
   './', './index.html', './manifest.webmanifest',
   './icons/apple-touch-icon.png', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
@@ -9,7 +9,11 @@ const FILES = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(VERSION)
+      .then(c => Promise.all(FILES.map(f => fetch(f, {cache: 'no-store'}).then(r => r.ok && c.put(f, r)).catch(() => {}))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {
@@ -19,18 +23,38 @@ self.addEventListener('activate', e => {
   );
 });
 
-// Sin conexión primero: responde desde la caché y, si hay internet, actualiza en segundo plano.
+// La página y el manifest: primero internet (así siempre ves la última versión);
+// si no hay conexión o tarda más de 3 s, se usa la copia guardada.
+// Fuentes e iconos: primero la copia guardada (no cambian).
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== location.origin) return;
+
+  const isPage = req.mode === 'navigate' || /\.(html|webmanifest)$/.test(url.pathname) || url.pathname.endsWith('/');
+  if (isPage) {
+    e.respondWith(new Promise(resolve => {
+      let done = false;
+      const finish = r => { if (!done && r) { done = true; resolve(r); } };
+      const fromCache = () => caches.match(req, {ignoreSearch: true}).then(hit => hit || caches.match('./index.html'));
+      const timer = setTimeout(() => fromCache().then(finish), 3000);
+      fetch(req, {cache: 'no-store'}).then(res => {
+        clearTimeout(timer);
+        if (res && res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
+        finish(res);
+      }).catch(() => {
+        clearTimeout(timer);
+        fromCache().then(r => finish(r || Response.error()));
+      });
+    }));
+    return;
+  }
+
   e.respondWith(
-    caches.match(e.request, {ignoreSearch: true}).then(hit => {
-      const net = fetch(e.request).then(res => {
-        if (res && res.ok && new URL(e.request.url).origin === location.origin) {
-          const copy = res.clone(); caches.open(VERSION).then(c => c.put(e.request, copy));
-        }
-        return res;
-      }).catch(() => hit || (e.request.mode === 'navigate' ? caches.match('./index.html') : undefined));
-      return hit || net;
-    })
+    caches.match(req, {ignoreSearch: true}).then(hit => hit || fetch(req).then(res => {
+      if (res && res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
+      return res;
+    }))
   );
 });

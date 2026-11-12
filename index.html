@@ -60,6 +60,16 @@
     color:var(--text);font-size:22px;font-weight:600;cursor:pointer;touch-action:manipulation}
   .stepper button:active{transform:scale(.94);background:#2c2c34}
   .stepper .val{min-width:70px;text-align:center;font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+  /* Tiempo: minutos y segundos por separado */
+  .tstep{display:flex;align-items:center;gap:2px}
+  .tcol{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .tcol button{width:54px;height:26px;border-radius:9px;border:0;background:var(--panel2);color:var(--text);
+    display:grid;place-items:center;cursor:pointer;touch-action:manipulation;padding:0}
+  .tcol button svg{width:16px;height:16px}
+  .tcol button:active{transform:scale(.94);background:#2c2c34}
+  .tcol .num{font-size:28px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;min-width:44px;text-align:center;position:relative}
+  .tcol .num small{position:absolute;left:100%;bottom:3px;margin-left:-2px;font-family:Inter,sans-serif;font-size:10px;font-weight:600;color:var(--muted)}
+  .tsep{font-size:28px;font-weight:700;padding:0 4px;line-height:1}
   .summary{display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px;color:var(--muted);font-size:14px}
   .summary strong{color:var(--text);font-size:26px;font-weight:700}
   .toggles{display:flex;gap:8px}
@@ -211,6 +221,12 @@
     .row{padding:8px 12px}
     .stepper button{width:36px;height:36px}
     .stepper .val{font-size:24px}
+    /* En horizontal: flechas a los lados de cada número */
+    .tcol{flex-direction:row;gap:4px}
+    .tcol .up{order:3} .tcol .num{order:2;font-size:24px;min-width:34px} .tcol .dn{order:1}
+    .tcol button{width:34px;height:34px}
+    .tcol .num small{display:none}
+    .tcol .up svg{transform:rotate(90deg)} .tcol .dn svg{transform:rotate(90deg)}
   }
 </style>
 </head>
@@ -327,12 +343,12 @@
 (() => {
   // ---------- Config ----------
   const FIELDS = [
-    {key:'prep',   name:'Preparación', sub:'antes de empezar',  color:'var(--prep)',    step:1, min:0,  max:120, time:true},
-    {key:'work',   name:'Trabajo',     sub:'por ronda',          color:'var(--work)',    step:1, min:1,  max:600, time:true},
-    {key:'rest',   name:'Descanso',    sub:'entre rondas',       color:'var(--rest)',    step:1, min:0,  max:600, time:true},
+    {key:'prep',   name:'Preparación', sub:'antes de empezar',  color:'var(--prep)',    step:1, min:0,  max:599, time:true},
+    {key:'work',   name:'Trabajo',     sub:'por ronda',          color:'var(--work)',    step:1, min:1,  max:3599, time:true},
+    {key:'rest',   name:'Descanso',    sub:'entre rondas',       color:'var(--rest)',    step:1, min:0,  max:3599, time:true},
     {key:'rounds', name:'Rondas',      sub:'por serie',          color:'var(--text)',    step:1, min:1,  max:50},
     {key:'sets',   name:'Series',      sub:'bloques',            color:'var(--muted)',   step:1, min:1,  max:20},
-    {key:'setRest',name:'Descanso serie', sub:'entre series',    color:'var(--setrest)', step:1, min:0,  max:900, time:true},
+    {key:'setRest',name:'Descanso serie', sub:'entre series',    color:'var(--setrest)', step:1, min:0,  max:3599, time:true},
   ];
   const PRESETS = [
     {name:'Tabata clásico', v:{prep:10,work:20,rest:10,rounds:8,sets:1,setRest:60}},
@@ -370,7 +386,9 @@
       const dim = f.key === 'setRest' && cfg.sets < 2;
       const sub = dim ? 'sube las series a 2+' : f.sub;
       const row = document.createElement('div'); row.className = 'row' + (dim ? ' dim' : ''); row.dataset.key = f.key;
-      row.innerHTML = `<div class="lbl"><span class="dot" style="background:${f.color}"></span><div><b>${f.name}</b><small>${sub}</small></div></div>
+      const lbl = `<div class="lbl"><span class="dot" style="background:${f.color}"></span><div><b>${f.name}</b><small>${sub}</small></div></div>`;
+      if (f.time){ row.innerHTML = lbl + timeStepper(); bindTime(row, f); wrap.appendChild(row); return; }
+      row.innerHTML = lbl + `
         <div class="stepper"><button data-d="-1" aria-label="menos">−</button><span class="val cond">${fmtVal(f,cfg[f.key])}</span><button data-d="1" aria-label="más">+</button></div>`;
       row.querySelectorAll('button').forEach(btn => bindRepeat(btn, () => {
         const d = +btn.dataset.d;
@@ -387,6 +405,29 @@
       wrap.appendChild(row);
     });
   }
+  const UP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
+  const DN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  function timeStepper(){
+    const col = (u, unit) => `<div class="tcol"><button class="up" data-u="${u}" data-d="1" aria-label="más ${unit}">${UP}</button>
+      <span class="num cond" data-n="${u}"></span><button class="dn" data-u="${u}" data-d="-1" aria-label="menos ${unit}">${DN}</button></div>`;
+    return `<div class="tstep">${col('m','minutos')}<span class="tsep cond">:</span>${col('s','segundos')}</div>`;
+  }
+  function bindTime(row, f){
+    const show = () => {
+      const v = cfg[f.key];
+      row.querySelector('[data-n="m"]').innerHTML = Math.floor(v/60);
+      row.querySelector('[data-n="s"]').innerHTML = String(v%60).padStart(2,'0');
+    };
+    show();
+    row.querySelectorAll('button').forEach(btn => bindRepeat(btn, () => {
+      const d = +btn.dataset.d, v = cfg[f.key];
+      let m = Math.floor(v/60), sec = v%60;
+      if (btn.dataset.u === 'm') m = Math.max(0, m + d);
+      else sec = (sec + d + 60) % 60;               // los segundos dan la vuelta (59 → 00) sin tocar los minutos
+      cfg[f.key] = Math.min(f.max, Math.max(f.min, m*60 + sec));
+      save(); show(); renderPresets(); renderTotal();
+    }));
+  }
   let rptT1, rptT2;
   const stopRepeat = () => { clearTimeout(rptT1); clearInterval(rptT2); };
   ['pointerup','pointercancel','blur'].forEach(ev => window.addEventListener(ev, stopRepeat));
@@ -396,7 +437,7 @@
   }
   // ---------- Sound & voice sheet ----------
   const COUNT_OPTS  = [['beep','Pitidos'],['voice','Voz'],['both','Ambos'],['none','Nada']];
-  const PHRASE_OPTS = [['basic','Básicas','“Vamos · Descansa”'],['motiv','Motivadoras','“¡Dale fuerte!”'],['short','Cortas','“Ya · Para”']];
+  const PHRASE_OPTS = [['basic','Básicas','“Vamos equipo · Descansa”'],['motiv','Motivadoras','“¡Dale fuerte!”'],['short','Cortas','“Ya · Para”']];
   const WAKE_OPTS   = [[true,'Siempre encendida'],[false,'Normal']];
 
   function chipGroup(el, items, key, onPick){
@@ -436,7 +477,7 @@
         opts.voice = id; saveOpts();
         list.querySelectorAll('.vitem').forEach(x => x.classList.remove('on')); it.classList.add('on');
         renderSoundSummary(); initAudio();
-        if (id !== 'none') say('¡Vamos! Tres, dos, uno', true);
+        if (id !== 'none') say('¡Vamos equipo! Tres, dos, uno', true);
       };
       list.appendChild(it);
     });
@@ -473,7 +514,7 @@
   const HEX = {prep:'#f5c542', work:'#00e676', rest:'#2979ff', setrest:'#1a5cff', done:'#c38bff'};
   const setTheme = c => { const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = c; };
   const PHRASES = {
-    basic: {prep:['Prepárate'], work:['¡Vamos!'], last:['¡Última ronda!'], rest:['Descansa'], setrest:['Descanso entre series'],
+    basic: {prep:['Prepárate'], work:['¡Vamos equipo!'], last:['¡Última ronda!'], rest:['Descansa'], setrest:['Descanso entre series'],
             half:['Mitad'], done:['¡Terminado! Buen trabajo'], pause:['Pausa'], count:['Uno','Dos','Tres']},
     motiv: {prep:['Prepárate, que empezamos','Concéntrate, empezamos'], work:['¡Dale fuerte!','¡A tope!','¡Vamos, vamos!','¡Con todo!','¡Ahora!'],
             last:['¡Última ronda, déjalo todo!','¡La última, con todo!'], rest:['Respira','Recupera','Buen trabajo, respira'],
@@ -481,6 +522,8 @@
             done:['¡Brutal! Entreno terminado','¡Lo has clavado!'], pause:['Pausa'], count:['Uno','Dos','Tres']},
     short: {prep:['Listos'], work:['Ya'], last:['Última'], rest:['Para'], setrest:['Descanso'], half:['Mitad'], done:['Fin'], pause:['Pausa'], count:['Uno','Dos','Tres']},
   };
+  // Se escribe FunXional, pero a la voz se le pasa como se lee en español para que no lo diga en inglés
+  const TEAM = '¡Vamos equipo funksional!';
   const pick = a => a[Math.floor(Math.random() * a.length)];
   const P = k => pick(PHRASES[opts.phrases][k]);
 
@@ -488,7 +531,11 @@
   let ctx = null, master = null;
   function initAudio(){
     try{
-      if (!ctx){ ctx = new (window.AudioContext || window.webkitAudioContext)(); master = ctx.createGain(); master.connect(ctx.destination); }
+      if (!ctx){ ctx = new (window.AudioContext || window.webkitAudioContext)(); master = ctx.createGain();
+        const comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -20; comp.knee.value = 6; comp.ratio.value = 8; comp.attack.value = .002; comp.release.value = .15;
+        const boost = ctx.createGain(); boost.gain.value = 1.4;
+        master.connect(comp).connect(boost).connect(ctx.destination); }
       if (ctx.state === 'suspended') ctx.resume();
       master.gain.value = opts.vol / 100;
       // unlock on iOS with a silent buffer
@@ -513,15 +560,32 @@
   function metal(t, f, dur, parts, vol=.5, glide=0){
     parts.forEach(([m, v, d=1]) => tone(t, f*m, dur*d, {vol: vol*v, attack:.002, glide}));
   }
+  // FM: timbre limpio tipo piano eléctrico / campanilla moderna
+  function fm(t, f, dur, {ratio=2, index=1.5, vol=.5} = {}){
+    const c = ctx.createOscillator(), m = ctx.createOscillator(), mg = ctx.createGain(), g = ctx.createGain();
+    c.frequency.value = f; m.frequency.value = f*ratio;
+    mg.gain.setValueAtTime(f*index, t); mg.gain.exponentialRampToValueAtTime(f*index*.08, t + dur*.6);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .004);
+    g.gain.exponentialRampToValueAtTime(vol*.35, t + .12); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    m.connect(mg).connect(c.frequency); c.connect(g).connect(master);
+    c.start(t); m.start(t); c.stop(t + dur + .05); m.stop(t + dur + .05);
+  }
+  // Golpe grave corto: da pegada y se nota aunque haya música
+  function thump(t, vol=.8, f=140){
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f*.35, t + .18);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .003); g.gain.exponentialRampToValueAtTime(.0001, t + .22);
+    o.connect(g).connect(master); o.start(t); o.stop(t + .25);
+  }
   const BELL = [[1,1],[2.76,.45,.6],[5.4,.25,.4],[8.93,.12,.25]];
   const RING = [[1,1],[1.48,.7,.8],[2.1,.5,.6],[2.9,.35,.5],[3.6,.2,.4]];
   const GONG = [[1,1],[1.52,.6],[2.31,.4,.8],[3.1,.25,.6],[4.2,.12,.4]];
   const SOUNDS = {
-    classic:{name:'Clásico', em:'🔔',
-      tick:t => tone(t, 880, .12, {type:'square', vol:.35}),
-      work:t => tone(t, 1320, .45, {type:'square', vol:.4, hold:true}),
-      rest:t => tone(t, 660, .45, {type:'square', vol:.4, hold:true}),
-      done:t => [0,.25,.5].forEach((d,i) => tone(t+d, 990 + i*220, .25, {type:'square', vol:.4, hold:true}))},
+    classic:{name:'Pro', em:'✨',
+      tick:t => fm(t, 1568, .16, {ratio:2, index:1.2, vol:.45}),
+      work:t => { thump(t, .9); fm(t, 1047, .9, {ratio:3.5, index:2.2, vol:.5}); fm(t+.09, 1568, 1.1, {ratio:3.5, index:2.2, vol:.55}); fm(t+.09, 2093, .7, {ratio:2, index:.8, vol:.18}); },
+      rest:t => { thump(t, .6, 90); fm(t, 784, 1.1, {ratio:2, index:1.6, vol:.5}); fm(t+.14, 523, 1.4, {ratio:2, index:1.6, vol:.55}); },
+      done:t => { thump(t, .8); [1047,1319,1568,2093].forEach((f,i) => fm(t+i*.13, f, 1.4, {ratio:3.5, index:2, vol:.42})); }},
     bell:{name:'Campana', em:'🛎️',
       tick:t => metal(t, 1760, .35, BELL, .35),
       work:t => { metal(t, 1046, 1.6, BELL, .6); metal(t+.22, 1046, 1.6, BELL, .5); },
@@ -630,7 +694,7 @@
     $('setLabel').style.visibility = cfg.sets > 1 ? 'visible' : 'hidden';
     play(s.type === 'work' ? 'work' : s.type === 'prep' ? 'tick' : 'rest');
     const lastRound = s.type === 'work' && cfg.rounds > 1 && s.round === cfg.rounds && s.set === cfg.sets;
-    say(lastRound ? P('last') : P(s.type), true);
+    say(s.type === 'prep' && s.dur < 7 ? TEAM : lastRound ? P('last') : P(s.type), true);
     try{ navigator.vibrate && navigator.vibrate(200); }catch(e){}
     document.body.classList.remove('flash'); void document.body.offsetWidth; document.body.classList.add('flash');
     updateBars();
@@ -648,6 +712,7 @@
         if (opts.countdown === 'beep' || opts.countdown === 'both') play('tick');
         if (opts.countdown === 'voice' || opts.countdown === 'both') say(PHRASES[opts.phrases].count[whole-1], true);
       }
+      if (s.type === 'prep' && s.dur >= 7 && whole === 6 && lastWhole !== null) say(TEAM, true);
       if (s.type === 'work' && s.dur >= 30 && whole === Math.ceil(s.dur/2) && lastWhole !== null) say(P('half'));
       lastWhole = whole;
     }
@@ -746,9 +811,23 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then(() => {
+      const hadController = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.register('sw.js', {updateViaCache: 'none'}).then(reg => {
+        // Busca versión nueva cada vez que vuelves a la app
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+        return navigator.serviceWorker.ready;
+      }).then(() => {
         const el = document.getElementById('offlineState'); if (el) el.textContent = '✓ Lista para usar sin conexión';
       }).catch(() => {});
+
+      // Cuando llega una versión nueva, recarga sola (nunca en mitad de un entreno)
+      let reloading = false;
+      const reloadWhenIdle = () => {
+        if (reloading) return;
+        if (document.body.classList.contains('running')) { setTimeout(reloadWhenIdle, 2000); return; }
+        reloading = true; location.reload();
+      };
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) reloadWhenIdle(); });
     });
   }
 </script>
