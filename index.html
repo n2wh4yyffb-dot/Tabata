@@ -696,10 +696,16 @@
     hvamos:'audio/hyrox-vamonos.mp3', hbuen:'audio/hyrox-buen-trabajo.mp3'};
   const clipBuf = {}; let clipSrc = null, clipsLoading = null;
   const mine = () => opts.voice === 'mine';
+  setTimeout(() => { if (mine()) fetchClips(); }, 0);
+  // Las grabaciones se descargan nada más abrir la app (si está elegida Mi voz) y se preparan al primer toque
+  let clipBytes = null;
+  const fetchClips = () => clipBytes || (clipBytes = Object.fromEntries(Object.entries(CLIPS).map(([k,u]) =>
+    [k, fetch(u).then(r => { if (!r.ok) throw r.status; return r.arrayBuffer(); })])));
   function loadClips(){
     if (clipsLoading || !ctx) return clipsLoading;
-    clipsLoading = Promise.all(Object.entries(CLIPS).map(([k,u]) =>
-      fetch(u).then(r => r.arrayBuffer()).then(ab => new Promise((ok, ko) => ctx.decodeAudioData(ab, ok, ko)))
+    const bytes = fetchClips();
+    clipsLoading = Promise.all(Object.keys(CLIPS).map(k =>
+      bytes[k].then(ab => new Promise((ok, ko) => ctx.decodeAudioData(ab.slice(0), ok, ko)))
         .then(b => { clipBuf[k] = b; }).catch(() => {})));
     return clipsLoading;
   }
@@ -709,7 +715,7 @@
     // Si aún se están cargando (primera vez), suena en cuanto estén listas
     if (keys.some(k => !clipBuf[k])){
       const t0 = performance.now();
-      (loadClips() || Promise.resolve()).then(() => { if (performance.now() - t0 < 1500 && keys.every(k => clipBuf[k])) clip(...keys); });
+      (loadClips() || Promise.resolve()).then(() => { if (performance.now() - t0 < 4000 && keys.every(k => clipBuf[k])) clip(...keys); });
       return;
     }
     try{
