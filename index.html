@@ -151,6 +151,12 @@
   .row.dim .lbl, .row.dim .val{opacity:.4}
 
   /* Sound summary card */
+  .team{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .team button{height:52px;border-radius:14px;border:1px solid var(--line);background:var(--panel);color:var(--muted);
+    font-size:22px;font-weight:800;letter-spacing:.04em;cursor:pointer;touch-action:manipulation;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+  .team button small{font-family:Inter,sans-serif;font-size:10px;font-weight:600;letter-spacing:0;margin-top:3px;opacity:.75}
+  .team button.on[data-t="funx"]{background:var(--work);color:var(--ink);border-color:transparent}
+  .team button.on[data-t="hyrox"]{background:#ffd400;color:var(--ink);border-color:transparent}
   .sound-card{display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer}
   .sound-card .ico{width:40px;height:40px;border-radius:12px;background:var(--panel2);display:grid;place-items:center;flex:0 0 auto}
   .sound-card .ico svg{width:22px;height:22px}
@@ -241,6 +247,11 @@
 
   <!-- SETUP -->
   <section id="setup">
+    <div class="team" id="teamSeg">
+      <button class="cond" data-t="funx">FunXional<small>frases del equipo</small></button>
+      <button class="cond" data-t="hyrox">HYROX<small>campana al empezar</small></button>
+    </div>
+
     <div class="presets" id="presets"></div>
 
     <div class="card" id="fields"></div>
@@ -365,7 +376,7 @@
     set(k,v){ try{ localStorage.setItem('tabata.'+k, JSON.stringify(v)); }catch(e){} }
   };
   let cfg  = Object.assign({}, PRESETS[0].v, store.get('cfg', {}));
-  let opts = Object.assign({sound:'classic', vol:80, countdown:'beep', phrases:'basic', voice:'auto', wake:true, run:false}, store.get('opts2', {}));
+  let opts = Object.assign({sound:'classic', vol:80, countdown:'beep', phrases:'basic', voice:'auto', wake:true, run:false, team:'funx'}, store.get('opts2', {}));
   const saveOpts = () => store.set('opts2', opts);
 
   const $ = id => document.getElementById(id);
@@ -498,11 +509,18 @@
     $('soundSummary').textContent = `${SOUNDS[opts.sound].name} · ${v}${opts.voice === 'none' ? '' : ' · frases ' + ph} · ${opts.vol}%`;
   }
   function renderToggles(){ renderSoundSummary(); }
+  function renderTeam(){
+    document.querySelectorAll('#teamSeg button').forEach(b => {
+      b.classList.toggle('on', b.dataset.t === opts.team);
+      b.onclick = () => { opts.team = b.dataset.t; saveOpts(); renderTeam(); initAudio(); if (opts.team === 'hyrox') siren(); };
+    });
+  }
+  const hyrox = () => opts.team === 'hyrox';
   function renderTotal(){
     const segs = buildSegments();
     $('total').textContent = fmt(segs.reduce((a,s) => a + s.dur, 0));
   }
-  function renderAll(){ renderPresets(); renderFields(); renderTotal(); renderToggles(); }
+  function renderAll(){ renderPresets(); renderFields(); renderTotal(); renderToggles(); renderTeam(); }
   function save(){ store.set('cfg', cfg); }
 
   // ---------- Sequence ----------
@@ -587,6 +605,27 @@
     g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .003); g.gain.exponentialRampToValueAtTime(.0001, t + .22);
     o.connect(g).connect(master); o.start(t); o.stop(t + .25);
   }
+  // Campana de salida (HYROX): tres golpes de campana de boxeo, ~2 s
+  function siren(delay = 0){
+    if (!ctx) return;
+    try{
+      if (ctx.state === 'suspended') ctx.resume();
+      master.gain.value = opts.vol / 100;
+      const t = ctx.currentTime + .03 + delay;
+      const ring = st => {
+        [[1,1],[2.76,.5],[5.4,.3],[8.93,.18],[1.006,.6]].forEach(([r,v]) => {
+          const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = 720*r;
+          g.gain.setValueAtTime(.0001, st); g.gain.exponentialRampToValueAtTime(.4*v, st + .003);
+          g.gain.exponentialRampToValueAtTime(.0001, st + 1.4/Math.sqrt(r));
+          o.connect(g).connect(master); o.start(st); o.stop(st + 1.5);
+        });
+        const n = ctx.createBufferSource(), b = ctx.createBuffer(1, Math.floor(ctx.sampleRate*.03), ctx.sampleRate), d = b.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2 - 1) * (1 - i/d.length);
+        const ng = ctx.createGain(); ng.gain.value = .2; n.buffer = b; n.connect(ng).connect(master); n.start(st);
+      };
+      ring(t); ring(t + .35); ring(t + .7);
+    }catch(e){}
+  }
   const BELL = [[1,1],[2.76,.45,.6],[5.4,.25,.4],[8.93,.12,.25]];
   const RING = [[1,1],[1.48,.7,.8],[2.1,.5,.6],[2.9,.35,.5],[3.6,.2,.4]];
   const GONG = [[1,1],[1.52,.6],[2.31,.4,.8],[3.1,.25,.6],[4.2,.12,.4]];
@@ -652,7 +691,9 @@
   // ---------- Mi voz: grabaciones de Julián ----------
   const CLIPS = {equipo:'audio/equipo.mp3', tres:'audio/tres.mp3', dos:'audio/dos.mp3', uno:'audio/uno.mp3',
     vamos:'audio/vamos-equipo.mp3', descanso:'audio/descanso.mp3', ultima:'audio/ultima.mp3',
-    buen:'audio/buen-trabajo.mp3', carrera:'audio/carrera.mp3'};
+    buen:'audio/buen-trabajo.mp3', carrera:'audio/carrera.mp3',
+    hequipo:'audio/hyrox-equipo.mp3', htres:'audio/hyrox-tres.mp3', hdos:'audio/hyrox-dos.mp3', huno:'audio/hyrox-uno.mp3',
+    hvamos:'audio/hyrox-vamonos.mp3', hbuen:'audio/hyrox-buen-trabajo.mp3'};
   const clipBuf = {}; let clipSrc = null, clipsLoading = null;
   const mine = () => opts.voice === 'mine';
   function loadClips(){
@@ -740,11 +781,12 @@
     const lastRound = s.type === 'work' && cfg.rounds > 1 && s.round === cfg.rounds && s.set === cfg.sets;
     const firstRound = s.type === 'work' && s.round === 1 && s.set === 1;
     if (mine()){
-      const k = s.type === 'prep' ? 'equipo' : s.type === 'rest' ? 'descanso' : s.type === 'setrest' ? (opts.run ? 'carrera' : 'descanso')
-        : lastRound ? 'ultima' : firstRound ? 'vamos' : null;
+      const k = s.type === 'prep' ? (hyrox() ? 'hequipo' : 'equipo') : s.type === 'rest' ? 'descanso' : s.type === 'setrest' ? (opts.run ? 'carrera' : 'descanso')
+        : lastRound ? 'ultima' : firstRound ? (hyrox() ? 'hvamos' : 'vamos') : null;
       if (k) clip(k);
     }
-    say(s.type === 'setrest' && opts.run ? RUN : s.type === 'prep' && s.dur < 7 ? TEAM : lastRound ? P('last') : firstRound && opts.phrases === 'basic' ? '¡Vamos equipo!' : P(s.type), true);
+    if (hyrox() && firstRound) siren(mine() ? .55 : 0);   // con tu voz, la campana entra justo después de «¡vámonos!»
+    say(s.type === 'setrest' && opts.run ? RUN : s.type === 'prep' && s.dur < 7 && !hyrox() ? TEAM : lastRound ? P('last') : firstRound && opts.phrases === 'basic' ? '¡Vamos equipo!' : P(s.type), true);
     try{ navigator.vibrate && navigator.vibrate(200); }catch(e){}
     document.body.classList.remove('flash'); void document.body.offsetWidth; document.body.classList.add('flash');
     updateBars();
@@ -761,10 +803,10 @@
       if (lastWhole !== null && whole <= 3 && whole >= 1 && s.dur > 3){
         if (opts.countdown === 'beep' || opts.countdown === 'both') play('tick');
         if (opts.countdown === 'voice' || opts.countdown === 'both'){
-          if (mine()) clip(['uno','dos','tres'][whole-1]); else say(PHRASES[opts.phrases].count[whole-1], true);
+          if (mine()) clip((hyrox() ? ['huno','hdos','htres'] : ['uno','dos','tres'])[whole-1]); else say(PHRASES[opts.phrases].count[whole-1], true);
         }
       }
-      if (s.type === 'prep' && s.dur >= 7 && whole === 6 && lastWhole !== null) say(TEAM, true);
+      if (!hyrox() && s.type === 'prep' && s.dur >= 7 && whole === 6 && lastWhole !== null) say(TEAM, true);
       if (s.type === 'work' && s.dur >= 30 && whole === Math.ceil(s.dur/2) && lastWhole !== null) say(P('half'));
       lastWhole = whole;
     }
@@ -787,7 +829,8 @@
     document.querySelectorAll('#bars i').forEach(b => { b.className = 'done'; });
     play('done');
     // En una sola frase: en el iPhone, una segunda frase en cola justo después de cortar la voz a veces se pierde
-    if (mine()) opts.run ? clip('buen','carrera') : clip('buen');
+    const buen = hyrox() ? 'hbuen' : 'buen';
+    if (mine()) opts.run ? clip(buen,'carrera') : clip(buen);
     say(opts.run ? '¡Buen trabajo equipo! ' + RUN : '¡Buen trabajo equipo!', true);
     releaseScreen();
   }
